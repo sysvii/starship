@@ -10,6 +10,7 @@ mod modules;
 mod print;
 mod segment;
 mod utils;
+mod command;
 
 use crate::module::ALL_MODULES;
 use clap::{App, AppSettings, Arg, SubCommand};

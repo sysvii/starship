@@ -6,4 +6,5 @@ pub mod module;
 pub mod modules;
 pub mod print;
 pub mod segment;
+pub mod command;
 mod utils;

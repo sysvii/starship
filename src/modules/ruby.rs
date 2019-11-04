@@ -1,4 +1,4 @@
-use std::process::Command;
+use crate::command::execute;
 
 use super::{Context, Module, RootModuleConfig, SegmentConfig};
 
@@ -34,10 +34,7 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
 }
 
 fn get_ruby_version() -> Option<String> {
-    match Command::new("ruby").arg("-v").output() {
-        Ok(output) => Some(String::from_utf8(output.stdout).unwrap()),
-        Err(_) => None,
-    }
+    execute("ruby -v")
 }
 
 fn format_ruby_version(ruby_version: &str) -> Option<String> {
