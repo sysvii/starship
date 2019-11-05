@@ -1,7 +1,6 @@
-use std::process::Command;
-
 use super::{Context, Module, RootModuleConfig};
 
+use crate::command::execute;
 use crate::configs::go::GoConfig;
 
 /// Creates a module with the current Go version
@@ -39,11 +38,7 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
 }
 
 fn get_go_version() -> Option<String> {
-    Command::new("go")
-        .arg("version")
-        .output()
-        .ok()
-        .and_then(|output| String::from_utf8(output.stdout).ok())
+    execute("go version")
 }
 
 fn format_go_version(go_stdout: &str) -> Option<String> {
@@ -66,10 +61,103 @@ fn format_go_version(go_stdout: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::utils::test::render_module;
+    use ansi_term::Color;
+    use std::fs::{self, File};
+    use std::io;
+    use tempfile;
 
     #[test]
     fn test_format_go_version() {
         let input = "go version go1.12 darwin/amd64";
         assert_eq!(format_go_version(input), Some("v1.12".to_string()));
+    }
+
+    #[test]
+    fn folder_without_go_files() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = "";
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_go_file() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("main.go"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_go_mod() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("go.mod"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_go_sum() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("go.sum"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_godeps() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let godeps = dir.path().join("Godeps");
+        fs::create_dir_all(&godeps)?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_glide_yaml() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("glide.yaml"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_gopkg_yml() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("Gopkg.yml"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_gopkg_lock() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("Gopkg.lock"))?.sync_all()?;
+
+        let actual = render_module("golang", dir.path());
+        let expected = format!("via {} ", Color::Cyan.bold().paint("🐹 v1.12.1"));
+        assert_eq!(expected, actual);
+        Ok(())
     }
 }
