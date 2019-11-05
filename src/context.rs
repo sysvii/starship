@@ -5,7 +5,7 @@ use clap::ArgMatches;
 use git2::{Repository, RepositoryState};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
-use std::env;
+use std::env::{self, Vars};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,6 +21,9 @@ pub struct Context<'a> {
 
     /// The current working directory that starship is being called in.
     pub current_dir: PathBuf,
+
+    /// A snapshot of the environment variables for the current starship process.
+    pub env: Vars,
 
     /// A vector containing the full paths of all the files in `current_dir`.
     dir_files: OnceCell<Vec<PathBuf>>,
@@ -74,6 +77,7 @@ impl<'a> Context<'a> {
             config,
             properties,
             current_dir,
+            env: std::env::vars(),
             dir_files: OnceCell::new(),
             repo: OnceCell::new(),
         }

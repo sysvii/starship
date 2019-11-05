@@ -27,7 +27,7 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
         .set_extensions(&["py"])
         .is_match();
 
-    let is_venv = env::var("VIRTUAL_ENV").ok().is_some();
+    let is_venv = context.env.find(|(k, v)| k == "VIRTUAL_ENV").is_some();
 
     if !is_py_project && !is_venv {
         return None;
@@ -164,7 +164,7 @@ mod tests {
     // fn with_virtual_env() -> io::Result<()> {
     //     let dir = tempfile::tempdir()?;
     //     File::create(dir.path().join("main.py"))?.sync_all()?;
-    //     let output = common::render_module("python")
+    //     let output = render_module("python", dir.path())
     //         .env("VIRTUAL_ENV", "/foo/bar/my_venv")
     //         .arg("--path")
     //         .arg(dir.path())
@@ -179,8 +179,7 @@ mod tests {
     // #[test]
     // fn with_active_venv() -> io::Result<()> {
     //     let dir = tempfile::tempdir()?;
-
-    //     let output = common::render_module("python")
+    //     let output = render_module("python", dir.path())
     //         .env("VIRTUAL_ENV", "/foo/bar/my_venv")
     //         .arg("--path")
     //         .arg(dir.path())
@@ -190,4 +189,5 @@ mod tests {
     //     let expected = format!("via {} ", Color::Yellow.bold().paint("🐍 v3.7.4 (my_venv)"));
     //     assert_eq!(expected, actual);
     //     Ok(())
+    // }
 }
