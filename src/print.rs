@@ -64,7 +64,7 @@ pub fn get_prompt(context: Context) -> String {
     buf
 }
 
-pub fn module(module_name: &str, args: ArgMatches) {
+pub fn module(module_name: &str, _args: ArgMatches) {
     let args = clap::ArgMatches::default();
     let context = Context::new(args);
     print!("{}", get_module(module_name, context));

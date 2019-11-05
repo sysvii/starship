@@ -16,7 +16,7 @@ pub fn execute(command: &'static str) -> Option<String> {
     let output = match binary {
         "ruby" => "ruby 2.6.3p456 (2018-03-28 revision 63024) [universal.x86_64-darwin18]",
         "go" => "go version go1.13 darwin/amd64",
-        "node" => "v12.10.0",
+        "node" => "v12.0.0",
         "python" => "Python 3.7.4",
         "pyenv" => "3.7.4",
 

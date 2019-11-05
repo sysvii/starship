@@ -51,14 +51,13 @@ fn format_ruby_version(ruby_version: &str) -> Option<String> {
     Some(formatted_version)
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::modules::utils::test::render_module;
     use ansi_term::Color;
     use std::fs::File;
     use std::io;
     use tempfile;
-    use crate::modules::utils::test::render_module;
 
     #[test]
     fn folder_without_ruby_files() -> io::Result<()> {
@@ -86,7 +85,7 @@ mod tests {
         let dir = tempfile::tempdir()?;
         File::create(dir.path().join("any.rb"))?.sync_all()?;
         let actual = render_module("ruby", dir.path());
-        
+
         let expected = format!("via {} ", Color::Red.bold().paint("💎 v2.6.3"));
         assert_eq!(expected, actual);
         Ok(())
