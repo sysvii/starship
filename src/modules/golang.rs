@@ -31,14 +31,10 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
     module.set_style(config.style);
     module.create_segment("symbol", &config.symbol);
 
-    let formatted_version = format_go_version(&get_go_version()?)?;
+    let formatted_version = format_go_version(&execute("go version")?)?;
     module.create_segment("version", &config.version.with_value(&formatted_version));
 
     Some(module)
-}
-
-fn get_go_version() -> Option<String> {
-    execute("go version")
 }
 
 fn format_go_version(go_stdout: &str) -> Option<String> {

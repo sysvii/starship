@@ -40,11 +40,11 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
     module.create_segment("symbol", &config.symbol);
 
     if config.pyenv_version_name {
-        let python_version = get_pyenv_version()?;
+        let python_version = execute("pyenv version-name")?;
         module.create_segment("pyenv_prefix", &config.pyenv_prefix);
         module.create_segment("version", &SegmentConfig::new(&python_version.trim()));
     } else {
-        let python_version = get_python_version()?;
+        let python_version = execute("python --version")?;
         let formatted_version = format_python_version(&python_version);
         module.create_segment("version", &SegmentConfig::new(&formatted_version));
 
@@ -57,14 +57,6 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
     };
 
     Some(module)
-}
-
-fn get_pyenv_version() -> Option<String> {
-    execute("pyenv version-name")
-}
-
-fn get_python_version() -> Option<String> {
-    execute("python --version")
 }
 
 fn format_python_version(python_stdout: &str) -> String {

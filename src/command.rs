@@ -29,7 +29,7 @@ pub fn execute(command: &'static str) -> Option<String> {
 }
 
 fn split_command(command: &'static str) -> (&'static str, &'static str) {
-    let mut splitter = command.splitn(2, " ");
+    let mut splitter = command.splitn(2, ' ');
     let binary = splitter.next().expect("binary missing");
     let arg = splitter.next().expect("arg missing");
 

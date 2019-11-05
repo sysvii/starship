@@ -20,7 +20,7 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
         return None;
     }
 
-    let ruby_version = get_ruby_version()?;
+    let ruby_version = execute("ruby -v")?;
     let formatted_version = format_ruby_version(&ruby_version)?;
 
     let mut module = context.new_module("ruby");
@@ -31,10 +31,6 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
     module.create_segment("version", &SegmentConfig::new(&formatted_version));
 
     Some(module)
-}
-
-fn get_ruby_version() -> Option<String> {
-    execute("ruby -v")
 }
 
 fn format_ruby_version(ruby_version: &str) -> Option<String> {

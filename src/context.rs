@@ -5,7 +5,7 @@ use clap::ArgMatches;
 use git2::{Repository, RepositoryState};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
-use std::env::{self, Vars};
+use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
