@@ -1,3 +1,4 @@
+#[cfg(not(test))]
 use std::process::Command;
 
 #[cfg(not(test))]
@@ -19,6 +20,7 @@ pub fn execute(command: &'static str) -> Option<String> {
         "node" => "v12.0.0",
         "python" => "Python 3.7.4",
         "pyenv" => "3.7.4",
+        "dotnet" => "2.2.402",
 
         _ => panic!("Unknown binary"),
     };

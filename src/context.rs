@@ -22,9 +22,6 @@ pub struct Context<'a> {
     /// The current working directory that starship is being called in.
     pub current_dir: PathBuf,
 
-    /// A snapshot of the environment variables for the current starship process.
-    pub env: Vars,
-
     /// A vector containing the full paths of all the files in `current_dir`.
     dir_files: OnceCell<Vec<PathBuf>>,
 
@@ -77,7 +74,6 @@ impl<'a> Context<'a> {
             config,
             properties,
             current_dir,
-            env: std::env::vars(),
             dir_files: OnceCell::new(),
             repo: OnceCell::new(),
         }

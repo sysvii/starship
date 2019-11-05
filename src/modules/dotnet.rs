@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 use std::str;
 
 use super::{Context, Module, RootModuleConfig};
+use crate::command::execute;
 use crate::configs::dotnet::DotnetConfig;
 
 type JValue = serde_json::Value;
@@ -201,16 +202,8 @@ fn map_str_to_lower(value: Option<&OsStr>) -> Option<String> {
 }
 
 fn get_version_from_cli() -> Option<Version> {
-    let version_output = match Command::new("dotnet").arg("--version").output() {
-        Ok(output) => output,
-        Err(e) => {
-            log::warn!("Failed to execute `dotnet --version`. {}", e);
-            return None;
-        }
-    };
-    let version = str::from_utf8(version_output.stdout.as_slice())
-        .ok()?
-        .trim();
+    let version_output = execute("dotnet --version")?;
+    let version = version_output.trim();
 
     let mut buffer = String::with_capacity(version.len() + 1);
     buffer.push('v');
@@ -290,9 +283,18 @@ impl Deref for Version {
     }
 }
 
-#[test]
-fn should_parse_version_from_global_json() {
-    let json_text = r#"
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::utils::test::render_module;
+    use std::fs::{DirBuilder, OpenOptions};
+    use std::io::{self, Error, ErrorKind, Write};
+    use std::process::{Command, Stdio};
+    use tempfile::{self, TempDir};
+
+    #[test]
+    fn should_parse_version_from_global_json() {
+        let json_text = r#"
         {
             "sdk": {
                 "version": "1.2.3"
@@ -300,14 +302,146 @@ fn should_parse_version_from_global_json() {
         }
     "#;
 
-    let version = get_pinned_sdk_version(json_text).unwrap();
-    assert_eq!("v1.2.3", version.0);
-}
+        let version = get_pinned_sdk_version(json_text).unwrap();
+        assert_eq!("v1.2.3", version.0);
+    }
 
-#[test]
-fn should_ignore_empty_global_json() {
-    let json_text = "{}";
+    #[test]
+    fn should_ignore_empty_global_json() {
+        let json_text = "{}";
 
-    let version = get_pinned_sdk_version(json_text);
-    assert!(version.is_none());
+        let version = get_pinned_sdk_version(json_text);
+        assert!(version.is_none());
+    }
+
+    #[test]
+    fn shows_nothing_in_directory_with_zero_relevant_files() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        expect_output(&workspace, ".", None)
+    }
+
+    #[test]
+    fn shows_latest_in_directory_with_solution() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        touch_path(&workspace, "solution.sln", None)?;
+        expect_output(&workspace, ".", Some("•NET v2.2.402"))
+    }
+
+    #[test]
+    fn shows_latest_in_directory_with_csproj() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        touch_path(&workspace, "project.csproj", None)?;
+        expect_output(&workspace, ".", Some("•NET v2.2.402"))
+    }
+
+    #[test]
+    fn shows_latest_in_directory_with_fsproj() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        touch_path(&workspace, "project.fsproj", None)?;
+        expect_output(&workspace, ".", Some("•NET v2.2.402"))
+    }
+
+    #[test]
+    fn shows_latest_in_directory_with_xproj() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        touch_path(&workspace, "project.xproj", None)?;
+        expect_output(&workspace, ".", Some("•NET v2.2.402"))
+    }
+
+    #[test]
+    fn shows_latest_in_directory_with_project_json() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        touch_path(&workspace, "project.json", None)?;
+        expect_output(&workspace, ".", Some("•NET v2.2.402"))
+    }
+
+    #[test]
+    fn shows_pinned_in_directory_with_global_json() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        let global_json = make_pinned_sdk_json("1.2.3");
+        touch_path(&workspace, "global.json", Some(&global_json))?;
+        expect_output(&workspace, ".", Some("•NET v1.2.3"))
+    }
+
+    #[test]
+    fn shows_pinned_in_project_below_root_with_global_json() -> io::Result<()> {
+        let workspace = create_workspace(false)?;
+        let global_json = make_pinned_sdk_json("1.2.3");
+        touch_path(&workspace, "global.json", Some(&global_json))?;
+        touch_path(&workspace, "project/project.csproj", None)?;
+        expect_output(&workspace, "project", Some("•NET v1.2.3"))
+    }
+
+    #[test]
+    fn shows_pinned_in_deeply_nested_project_within_repository() -> io::Result<()> {
+        let workspace = create_workspace(true)?;
+        let global_json = make_pinned_sdk_json("1.2.3");
+        touch_path(&workspace, "global.json", Some(&global_json))?;
+        touch_path(&workspace, "deep/path/to/project/project.csproj", None)?;
+        expect_output(&workspace, "deep/path/to/project", Some("•NET v1.2.3"))
+    }
+
+    fn create_workspace(is_repo: bool) -> io::Result<TempDir> {
+        let repo_dir = tempfile::tempdir()?;
+
+        if is_repo {
+            let mut command = Command::new("git");
+            command
+                .args(&["init", "--quiet"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .stdin(Stdio::null())
+                .current_dir(repo_dir.path());
+
+            if !command.status()?.success() {
+                return Err(Error::from(ErrorKind::Other));
+            }
+        }
+
+        Ok(repo_dir)
+    }
+
+    fn touch_path(workspace: &TempDir, relative_path: &str, contents: Option<&str>) -> io::Result<()> {
+        let path = workspace.path().join(relative_path);
+
+        DirBuilder::new().recursive(true).create(
+            path.parent()
+                .expect("Expected relative_path to be a file in a directory"),
+        )?;
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+        write!(file, "{}", contents.unwrap_or(""))?;
+        file.sync_data()
+    }
+
+    fn make_pinned_sdk_json(version: &str) -> String {
+        let json_text = r#"
+            {
+                "sdk": {
+                    "version": "INSERT_VERSION"
+                }
+            }
+        "#;
+        json_text.replace("INSERT_VERSION", version)
+    }
+
+    fn expect_output(workspace: &TempDir, run_from: &str, contains: Option<&str>) -> io::Result<()> {
+        let run_path = workspace.path().join(run_from);
+        let output = render_module("dotnet", &run_path);
+
+        // This can be helpful for debugging
+        eprintln!("The dotnet module showed: {}", output);
+
+        match contains {
+            Some(contains) => assert!(output.contains(contains)),
+            None => assert!(output.is_empty()),
+        }
+
+        Ok(())
+    }
+
 }
