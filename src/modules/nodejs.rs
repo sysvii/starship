@@ -1,4 +1,4 @@
-use std::process::Command;
+use crate::command::execute;
 
 use super::{Context, Module, RootModuleConfig, SegmentConfig};
 
@@ -40,8 +40,5 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
 }
 
 fn get_node_version() -> Option<String> {
-    match Command::new("node").arg("--version").output() {
-        Ok(output) => Some(String::from_utf8(output.stdout).unwrap()),
-        Err(_) => None,
-    }
+    execute("node --version")
 }

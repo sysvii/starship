@@ -65,12 +65,14 @@ pub fn get_prompt(context: Context) -> String {
 }
 
 pub fn module(module_name: &str, args: ArgMatches) {
+    let args = clap::ArgMatches::default();
     let context = Context::new(args);
+    print!("{}", get_module(module_name, context));
+}
 
+pub fn get_module(module_name: &str, context: Context) -> String {
     // If the module returns `None`, print an empty string
-    let module = modules::handle(module_name, &context)
+    modules::handle(module_name, &context)
         .map(|m| m.to_string())
-        .unwrap_or_default();
-
-    print!("{}", module);
+        .unwrap_or_default()
 }

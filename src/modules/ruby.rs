@@ -50,3 +50,45 @@ fn format_ruby_version(ruby_version: &str) -> Option<String> {
     formatted_version.push_str(version);
     Some(formatted_version)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use ansi_term::Color;
+    use std::fs::File;
+    use std::io;
+    use tempfile;
+    use crate::modules::utils::test::render_module;
+
+    #[test]
+    fn folder_without_ruby_files() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let actual = render_module("ruby", dir.path());
+
+        let expected = "";
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_gemfile() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("Gemfile"))?.sync_all()?;
+        let actual = render_module("ruby", dir.path());
+
+        let expected = format!("via {} ", Color::Red.bold().paint("💎 v2.6.3"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn folder_with_rb_file() -> io::Result<()> {
+        let dir = tempfile::tempdir()?;
+        File::create(dir.path().join("any.rb"))?.sync_all()?;
+        let actual = render_module("ruby", dir.path());
+        
+        let expected = format!("via {} ", Color::Red.bold().paint("💎 v2.6.3"));
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+}

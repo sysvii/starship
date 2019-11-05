@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate clap;
 
+#[cfg(test)]
+extern crate tempfile;
+
+mod command;
 mod config;
 mod configs;
 mod context;
@@ -10,7 +14,6 @@ mod modules;
 mod print;
 mod segment;
 mod utils;
-mod command;
 
 use crate::module::ALL_MODULES;
 use clap::{App, AppSettings, Arg, SubCommand};

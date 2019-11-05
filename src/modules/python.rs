@@ -1,8 +1,8 @@
 use std::env;
 use std::path::Path;
-use std::process::Command;
 
 use super::{Context, Module, RootModuleConfig, SegmentConfig};
+use crate::command::execute;
 use crate::configs::python::PythonConfig;
 
 /// Creates a module with the current Python version
@@ -60,36 +60,11 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
 }
 
 fn get_pyenv_version() -> Option<String> {
-    Command::new("pyenv")
-        .arg("version-name")
-        .output()
-        .ok()
-        .and_then(|output| String::from_utf8(output.stdout).ok())
+    execute("pyenv version-name")
 }
 
 fn get_python_version() -> Option<String> {
-    match Command::new("python").arg("--version").output() {
-        Ok(output) => {
-            if !output.status.success() {
-                log::warn!(
-                    "Non-Zero exit code '{}' when executing `python --version`",
-                    output.status
-                );
-                return None;
-            }
-            // We have to check both stdout and stderr since for Python versions
-            // < 3.4, Python reports to stderr and for Python version >= 3.5,
-            // Python reports to stdout
-            if output.stdout.is_empty() {
-                let stderr_string = String::from_utf8(output.stderr).unwrap();
-                Some(stderr_string)
-            } else {
-                let stdout_string = String::from_utf8(output.stdout).unwrap();
-                Some(stdout_string)
-            }
-        }
-        Err(_) => None,
-    }
+    execute("python --version")
 }
 
 fn format_python_version(python_stdout: &str) -> String {
