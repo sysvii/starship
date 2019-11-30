@@ -75,19 +75,42 @@ pub fn module<'a>(context: &'a Context) -> Option<Module<'a>> {
 
 fn get_battery_status() -> Option<BatteryStatus> {
     let battery_manager = battery::Manager::new().ok()?;
-    match battery_manager.batteries().ok()?.next() {
-        Some(Ok(battery)) => {
-            log::debug!("Battery found: {:?}", battery);
-            let battery_status = BatteryStatus {
-                percentage: battery.state_of_charge().value * 100.0,
-                state: battery.state(),
-            };
 
-            Some(battery_status)
+    let batteries = match battery_manager.batteries() {
+        Ok(batteries) => batteries,
+        Err(err) => {
+            log::debug!("Unable to access battery information:\n{}", &err);
+            return None;
         }
-        Some(Err(e)) => {
-            log::debug!("Unable to access battery information:\n{}", &e);
-            None
+    };
+
+    match sum_batteries(batteries) {
+        Some(total) => {
+            // Doubles check for sane values
+            if total.energy.value <= 0.0 {
+                log::debug!("Unexpected current energy value: {:?}", total.energy);
+                return None;
+            }
+            if total.energy_full.value <= 0.0 {
+                log::debug!("Unexpected total energy value: {:?}", total.energy_full);
+                return None;
+            }
+
+            // roughly equivalent to battery::Battery::state_of_charge
+            // but does lose some accuracy as stated in `battery`'s docs
+            let percentage = (total.energy.value / total.energy_full.value) * 100.0;
+            log::debug!(
+                "Total batteries energy, percentage: {} energy left: {:?} energy capacity: {:?} state: {:?}",
+                percentage,
+                total.energy,
+                total.energy_full,
+                total.state
+            );
+
+            Some(BatteryStatus {
+                percentage,
+                state: total.state,
+            })
         }
         None => {
             log::debug!("No batteries found");
@@ -96,7 +119,97 @@ fn get_battery_status() -> Option<BatteryStatus> {
     }
 }
 
+fn sum_batteries(batteries: battery::Batteries) -> Option<BatterySum> {
+    batteries.fold(None, |sum, battery| {
+        match battery {
+            Ok(battery) => {
+                if let Some(sum) = sum {
+
+                    let state = merge_battery_state(sum.state, battery.state());
+
+                    Some(BatterySum {
+                        energy: sum.energy + battery.energy(),
+                        energy_full: sum.energy_full + battery.energy_full(),
+                        state,
+                    })
+                } else {
+                    Some(BatterySum {
+                        energy: battery.energy(),
+                        energy_full: battery.energy_full(),
+                        state: battery.state(),
+                    })
+                }
+            }
+            Err(err) => {
+                log::debug!("Unable to access battery information:\n{}", &err);
+                sum
+            }
+        }
+    })
+}
+
+fn merge_battery_state(left: battery::State, right: battery::State) -> battery::State {
+    use battery::State::*;
+
+    if left == right {
+        return left;
+    }
+
+    match (left, right) {
+        // If either of the batteries are discharging
+        (_, Discharging) | (Discharging, _) => Discharging,
+        // Then, if either of them are charging
+        (Charging, _) | (_, Charging) => Charging,
+        // All that is left is a combination of Full, Empty & Unknown
+        // Not sure what is going on there
+        _ => Unknown,
+    }
+}
+
+struct BatterySum {
+    energy: battery::units::Energy,
+    energy_full: battery::units::Energy,
+    state: battery::State,
+}
+
 struct BatteryStatus {
     percentage: f32,
     state: battery::State,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use battery::State::*;
+
+    #[test]
+    fn battery_state_merge_always_discharge() {
+        for state in &[Full, Empty, Discharging, Charging, Unknown] {
+            assert_eq!(merge_battery_state(*state, Discharging), Discharging);
+            assert_eq!(merge_battery_state(Discharging, *state), Discharging);
+        }
+    }
+
+    #[test]
+    fn battery_state_merge_charges() {
+        // Note: discharging is missing since it wins over charging
+        for state in &[Full, Empty, Charging, Unknown] {
+            assert_eq!(merge_battery_state(*state, Charging), Charging);
+            assert_eq!(merge_battery_state(Charging, *state), Charging);
+        }
+    }
+
+    #[test]
+    fn battery_state_merge_unknown() {
+        for left in &[Full, Empty,  Unknown] {
+            for right in &[Full, Empty,  Unknown] {
+                if left == right {
+                    assert_eq!(merge_battery_state(*left, *right), *left);
+                } else {
+                    assert_eq!(merge_battery_state(*left, *right), Unknown);
+                }
+            }
+        }
+    }
+
 }
